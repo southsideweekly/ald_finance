@@ -3,7 +3,7 @@ source('~/git/sandbox/header.R')
 ## 00. Define parameters ----
 ## Wards
 sw_wards <- c(3:25, 34)
-## Start date - day after last municipal election
+## Start date - day after last municipal election -- SUBJECT TO CHANGE -- 
 start_date <- "2015-02-26"
 ## Sunshine Illinois API link
 api_link <- "http://illinoissunshine.org/api/receipts/"
@@ -28,7 +28,7 @@ sw_ids_full <- raw_ids %>%
 
 sw_ids <- sw_ids_full$committee_id[!is.na(sw_ids_full$committee_id)]
 
-## 02. pull data from Sunshine Illinois' API
+## 02. pull data from Sunshine Illinois' API ----
 receipts_raw <- lapply(sw_ids, 
                       function(curr_id){
                         # curr_id = sw_ids[10]
@@ -65,16 +65,28 @@ individuals <- receipts_raw %>%
   arrange(last_name, first_name)
 
 ## corporations to investigate
-corporations <- receipts_raw %>% 
+
+# w/ address 
+corporations_addr <- receipts_raw %>% 
   filter(is.na(first_name)) %>% 
   distinct(last_name, last_name_new, address1, zipcode) %>% 
   arrange(last_name) %>% 
   distinct(last_name_new, address1, zipcode, .keep_all = T)
 
-write.csv(corporations, 
+write.csv(corporations_addr, 
+          "~/data/sandbox/01_build_alderman_data/corporations_addr.csv")
+
+# w/o address
+corporations <- receipts_raw %>% 
+  filter(is.na(first_name)) %>% 
+  distinct(last_name, last_name_new) %>% 
+  arrange(last_name) %>% 
+  distinct(last_name_new, .keep_all = T)
+
+write.csv(corporations_addr, 
           "~/data/sandbox/01_build_alderman_data/corporations.csv")
 
-## clean up corp/individual names
+## clean up corp/individual names -- manual review
 
 ## 03. summary stats
 
