@@ -1,3 +1,4 @@
+rm(list = ls())
 source('~/git/sandbox/header.R')
 
 ## 00. Define parameters ----
@@ -46,49 +47,84 @@ receipts_raw <- lapply(sw_ids,
   bind_rows() %>% 
   left_join(sw_ids_full)
 
-## 03. Clean up donor names
+## 03. Clean up donor names ----
 
-receipts_raw <- receipts_raw %>% 
-  mutate(last_name_new = gsub(",|-", " ", last_name %>% tolower) %>% 
-           sub("&", "and", .) %>%
-           sub("street", "st", .) %>%
-           gsub("\\.|#| inc| llc| pac|-?political action committee|companies|ltd", "", .) %>% 
-           sub("  ", " ", .) %>% 
-           trimws())
+# ---- ON HOLD -----
 
-## individuals to map 
-## note - some duplicate names due to occupation/employer
-## unduped ~2,700 individuals
-individuals <- receipts_raw %>% 
-  filter(!is.na(first_name)) %>% 
-  distinct(first_name, last_name, occupation, employer, address1) %>% 
-  arrange(last_name, first_name)
+# receipts_raw <- receipts_raw %>% 
+#   mutate(last_name_new = gsub(",|-", " ", last_name %>% tolower) %>% 
+#            sub("&", "and", .) %>%
+#            sub("street", "st", .) %>%
+#            gsub("\\.|#| inc| llc| pac|-?political action committee|companies|ltd", "", .) %>% 
+#            sub("  ", " ", .) %>% 
+#            trimws())
+# 
+# ## individuals to map 
+# ## note - some duplicate names due to occupation/employer
+# ## unduped ~2,700 individuals
+# individuals <- receipts_raw %>% 
+#   filter(!is.na(first_name)) %>% 
+#   distinct(first_name, last_name, occupation, employer, address1) %>% 
+#   arrange(last_name, first_name)
+# 
+# ## corporations to investigate
+# 
+# # w/ address 
+# corporations_addr <- receipts_raw %>% 
+#   filter(is.na(first_name)) %>% 
+#   distinct(last_name, last_name_new, address1, zipcode) %>% 
+#   arrange(last_name) %>% 
+#   distinct(last_name_new, address1, zipcode, .keep_all = T)
+# 
+# write.csv(corporations_addr, 
+#           "~/data/sandbox/01_build_alderman_data/corporations_addr.csv")
+# 
+# # w/o address
+# corporations <- receipts_raw %>% 
+#   filter(is.na(first_name)) %>% 
+#   distinct(last_name, last_name_new) %>% 
+#   arrange(last_name) %>% 
+#   distinct(last_name_new, .keep_all = T)
+# 
+# write.csv(corporations_addr, 
+#           "~/data/sandbox/01_build_alderman_data/corporations.csv")
 
-## corporations to investigate
+## 04. Assign industry to corporate donors ----
+## first-pass using regex, then fill in by hand ##
 
-# w/ address 
-corporations_addr <- receipts_raw %>% 
+## clean up names
+clean_names <- receipts_raw %>% 
+  # filter to corperate donors
   filter(is.na(first_name)) %>% 
-  distinct(last_name, last_name_new, address1, zipcode) %>% 
-  arrange(last_name) %>% 
-  distinct(last_name_new, address1, zipcode, .keep_all = T)
+  ## remove duplicates
+  distinct(last_name) %>% 
+  # remove useless terms
+  mutate(last_name_clean = str_remove_all(last_name %>% tolower, 
+                                      "&| inc\\.?$| llc$| co\\.| co$|,|\\.| ltd| llp|^la |'") %>% 
+           str_replace_all(" e\\.? | s\\.? | w\\.? | n\\.? | and |-", " ") %>% 
+           str_squish() %>% 
+           str_trim()) %>% 
+  arrange(last_name)
 
-write.csv(corporations_addr, 
-          "~/data/sandbox/01_build_alderman_data/corporations_addr.csv")
+## look at common terms 
+common_terms <- clean_names %>% 
+  distinct(last_name_clean) %>% 
+  unlist() %>% 
+  str_split(" ") %>% 
+  unlist() %>% 
+  table %>% 
+  data.frame %>% 
+  arrange(desc(Freq))
 
-# w/o address
-corporations <- receipts_raw %>% 
-  filter(is.na(first_name)) %>% 
-  distinct(last_name, last_name_new) %>% 
-  arrange(last_name) %>% 
-  distinct(last_name_new, .keep_all = T)
+## flags for common terms
+clean_names <- clean_names %>% 
+  ## developers
+  mutate(flag_developer = grepl("construction|development|property|properties|contractors|building|design|architects?|studio gang|contracting|demolition|realty|real estate", last_name_clean),
+         flag_union = grepl("union|local| lu( |$)|seiu", last_name_clean),
+         flag_pol = grepl("citizens?|committee|for congress|for mayor|rahm|berrios|pac|political|friends?|democratic|ipo", last_name_clean),
+         flag_legal = grepl("associates|attorneys?|atty|law", last_name_clean))
 
-write.csv(corporations_addr, 
-          "~/data/sandbox/01_build_alderman_data/corporations.csv")
-
-## clean up corp/individual names -- manual review
-
-## 03. summary stats
+## 05. summary stats
 
 ## corp vs individual amounts, by committee
 ss_corp_ind <- receipts_raw %>% 
