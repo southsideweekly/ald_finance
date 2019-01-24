@@ -10,23 +10,24 @@ start_date <- "2015-02-26"
 api_link <- "http://illinoissunshine.org/api/receipts/"
 
 ## 01. Pull in committee IDs ----
-# tdl_url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRIKBkKCDVZOiflft-Qc5VCRlXCnVzZUsuvx6YzanMhKQl1mf-wWHiUVXtRY3YHVhTDvP_LgAEk0i9e/pubhtml#"
-# gs_url(tdl_url)
-# extract_key_from_url(tdl_url)
+sheet_list <- gs_ls()
 
-sheet_list <- gs_ls("TDL - Aldermanic Spreadsheet")
+## pull in committee IDs from TDL table
 tdl_link <- gs_title("TDL - Aldermanic Spreadsheet")
 raw_ids <- gs_read(ss = tdl_link)
+## clean up variable names
 raw_ids <- raw_ids %>% 
   rename_all(tolower) %>% 
   rename_all(function(x){gsub("[()]", "", x)}) %>% 
   rename_all(function(x){gsub(" |-", "_", x)}) %>% 
   mutate(ward_no = x1 %>% gsub("[a-z]", "", .) %>% as.numeric())
 
+## drop candidates who are removed or withdrawn
 sw_ids_full <- raw_ids %>% 
   filter(ward_no %in% sw_wards,
          !grepl("withdrew|Removed|Withdrawn", petition_objection_status))
 
+## unique list of committee ids
 sw_ids <- sw_ids_full$committee_id[!is.na(sw_ids_full$committee_id)]
 
 ## 02. pull data from Sunshine Illinois' API ----
@@ -48,6 +49,28 @@ receipts_raw <- lapply(sw_ids,
   left_join(sw_ids_full)
 
 ## 03. Clean up donor names ----
+
+## From Jasmine -- will need to fold in dedup ##
+clean_org_names <- gs_read(ss = gs_title("corporate reference"))
+clean_org_names_unique <- clean_org_names %>% 
+  select(cluster_id, last_name_new) %>% 
+  distinct(cluster_id, .keep_all = T)
+
+## merge clean org names onto data
+receipts_id <- receipts_raw %>% 
+  ## remove double-spacing
+  mutate(last_name = last_name %>% str_squish(),
+         address1 = address1 %>% str_squish()) %>% 
+  ## merge on cluster_id
+  left_join(clean_org_names %>% distinct(cluster_id, last_name, address1)) %>% 
+  ## use cluster_id to merge on clean names
+  left_join(clean_org_names_unique)
+
+## pull out distinct names and afddresses for industry lookup
+## NOTE - THERE APPEARS TO BE SOME JOIN ISSUES WITH THE CLEAN ORG NAMES ##
+ind_lookup_exp <- receipts_id %>% 
+  filter(is.na(first_name)) %>% 
+  distinct(last_name, last_name_new, address1, zipcode)
 
 # ---- ON HOLD -----
 
@@ -121,7 +144,7 @@ clean_names <- clean_names %>%
   ## developers
   mutate(flag_developer = grepl("construction|development|property|properties|contractors|building|design|architects?|studio gang|contracting|demolition|realty|real estate", last_name_clean),
          flag_union = grepl("union|local| lu( |$)|seiu", last_name_clean),
-         flag_pol = grepl("citizens?|committee|for congress|for mayor|rahm|berrios|pac|political|friends?|democratic|ipo", last_name_clean),
+         flag_pol = grepl("citizens?|committee|for congress|for mayor|rahm|berrios|pac|political|friends?|democratic| dem |ipo", last_name_clean),
          flag_legal = grepl("associates|attorneys?|atty|law", last_name_clean))
 
 ## 05. summary stats
