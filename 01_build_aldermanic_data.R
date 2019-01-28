@@ -46,7 +46,9 @@ receipts_raw <- lapply(sw_ids,
                         }
                       }) %>% 
   bind_rows() %>% 
-  left_join(sw_ids_full)
+  left_join(sw_ids_full) %>% 
+  ## drop donations after 1/27/2019
+  filter(received_date <= as.Date("2019-01-27"))
 
 ## 03. Clean up donor names ----
 
@@ -139,7 +141,6 @@ clean_names <- receipts_raw %>%
            str_squish()) %>% 
   arrange(last_name)
 
-
 ## look at common terms 
 common_terms <- clean_names %>% 
   distinct(last_name_clean) %>% 
@@ -153,13 +154,16 @@ common_terms <- clean_names %>%
 ## flags for common terms
 clean_names <- clean_names %>% 
   ## developers
-  mutate(flag_developer = grepl("construction|development|property|properties|contractors|building|design|architects?|studio gang|contracting|demolition|realty|real estate", last_name_clean),
+  mutate(flag_construction = grepl("construction|contractors|building|design|architects?|studio gang|contracting|demolition|roofing|masonry|builders?", last_name_clean),
+         flag_realty = grepl("development|property|properties|realty|real estate", last_name_clean),
          flag_union = grepl("union|local| lu( |$)|seiu", last_name_clean),
          flag_pol = grepl("citizens?|committee|for congress|for mayor|rahm|berrios|pac|political|friends?|democratic| dem |ipo", last_name_clean),
-         flag_legal = grepl("associates|attorneys?|atty|law", last_name_clean))
+         flag_legal = grepl("associates|attorneys?|atty|law", last_name_clean),
+         flag_service = grepl("restaurant| pub|pizza|hotel|motel| spa | spa$|food|liquor|grocery|coffee|grill|funeral|bakery|salon|beauty|beverage", last_name_clean))
 
 clean_names_out <- clean_names %>% 
-  distinct(last_name_clean, address1_new, flag_developer, flag_legal, flag_union, flag_pol)
+  select(last_name_clean, address1_new, starts_with("flag_")) %>% 
+  distinct()
 
 write_csv(clean_names_out, "~/data/ald_finance/01_build_alderman_data/corporations_addr_flags.csv")
 
