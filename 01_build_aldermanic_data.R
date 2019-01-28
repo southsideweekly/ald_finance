@@ -1,5 +1,5 @@
 rm(list = ls())
-source('~/git/sandbox/header.R')
+source('~/git/ald_finance/header.R')
 
 ## 00. Define parameters ----
 ## Wards
@@ -72,8 +72,6 @@ ind_lookup_exp <- receipts_id %>%
   filter(is.na(first_name)) %>% 
   distinct(last_name, last_name_new, address1, zipcode)
 
-# ---- ON HOLD -----
-
 # receipts_raw <- receipts_raw %>% 
 #   mutate(last_name_new = gsub(",|-", " ", last_name %>% tolower) %>% 
 #            sub("&", "and", .) %>%
@@ -120,14 +118,27 @@ clean_names <- receipts_raw %>%
   # filter to corperate donors
   filter(is.na(first_name)) %>% 
   ## remove duplicates
-  distinct(last_name) %>% 
+  distinct(last_name, address1) %>% 
   # remove useless terms
   mutate(last_name_clean = str_remove_all(last_name %>% tolower, 
                                       "&| inc\\.?$| llc$| co\\.| co$|,|\\.| ltd| llp|^la |'") %>% 
-           str_replace_all(" e\\.? | s\\.? | w\\.? | n\\.? | and |-", " ") %>% 
+           str_replace_all(" e\\.? | s\\.? | w\\.? | n\\.? | and |-|#", " ") %>% 
+           str_replace_all("political action committee", "pac") %>% 
+           str_remove(" company$| co$") %>% 
            str_squish() %>% 
-           str_trim()) %>% 
+           str_trim(),
+         address1_new = str_remove_all(address1 %>% tolower,
+                                       "\\.|,| (suite|ste|apt|fl|floor|\\#|unit|no)\\.? ?[0-9]*[a-z]*| [0-9]*[a-z]* (floor|fl|flr)") %>%
+           str_trim() %>% 
+           str_remove("street$| st$|drive$| dr$|road$| rd$|lane$| ln$|court$| ct$|avenue$| ave$| hwy$|boulevard| blvd$| ste$|place$| pl$|square$| sq$") %>% 
+           str_remove(" se$| - ?$") %>% 
+           str_replace(" e | s | w | n | east | south | west | north ", " ") %>% 
+           str_replace("p o ", "po ") %>% 
+           str_replace("pobox", "po box") %>% 
+           str_replace("(dr)? martin luther king( jr)?", " mlk") %>% 
+           str_squish()) %>% 
   arrange(last_name)
+
 
 ## look at common terms 
 common_terms <- clean_names %>% 
@@ -146,6 +157,11 @@ clean_names <- clean_names %>%
          flag_union = grepl("union|local| lu( |$)|seiu", last_name_clean),
          flag_pol = grepl("citizens?|committee|for congress|for mayor|rahm|berrios|pac|political|friends?|democratic| dem |ipo", last_name_clean),
          flag_legal = grepl("associates|attorneys?|atty|law", last_name_clean))
+
+clean_names_out <- clean_names %>% 
+  distinct(last_name_clean, address1_new, flag_developer, flag_legal, flag_union, flag_pol)
+
+write_csv(clean_names_out, "~/data/ald_finance/01_build_alderman_data/corporations_addr_flags.csv")
 
 ## 05. summary stats
 
