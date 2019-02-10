@@ -100,9 +100,10 @@ total_donations <- receipts_raw %>%
   arrange(desc(total_amount))
 
 total_donations_plot <- total_donations %>% 
-  ggplot(aes(x = reorder(candidate, -total_amount),
+  ggplot(aes(x = reorder(candidate, total_amount),
              y = type_amount,
-             fill = donor_type)) + 
+             fill = factor(donor_type,
+                           levels = c("Organization", "Individual")))) + 
   geom_bar(stat = "identity") + 
   labs(
     title = "Figure 1a: Total Receipts by Donor Type",
@@ -112,7 +113,9 @@ total_donations_plot <- total_donations %>%
   theme_classic() +
   scale_y_continuous(labels = dollar) +
   theme(plot.title = element_text(size = 18, face = "bold")) +
-  geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4)
+  geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4) +
+  # geom_text(aes(label = total_amount), size = 4) +
+  coord_flip()
 
 plot(total_donations_plot)
 
@@ -146,16 +149,23 @@ notable_donors <- receipts_raw %>%
   group_by(candidate) %>% 
   arrange(candidate, desc(amount)) %>% 
   mutate(order = 1:n()) %>% 
-  filter(order <= 4) %>%
+  filter(order <= 10) %>%
   left_join(total_donations %>% distinct(candidate, total_amount)) %>% 
   mutate(share = amount/total_amount,
          name = ifelse(donor_type == "Individual", 
                        paste(first_name, last_name),
                        last_name)) %>% 
   ungroup %>% group_by(candidate) %>% 
-  select(candidate, name, amount, share)
+  select(candidate, name, amount, share, order)
+
+## write out names, add in description and load back
+write.csv(notable_donors,
+          "~/data/ald_finance/02_ward_demo/notable_donors.csv",
+          row.names = F, na = "")
 
 notable_donors %>% 
+  filter(order <= 3) %>% 
+  select(-order) %>% 
   ## arrange in descending order of total receipts
   left_join(total_donations %>% distinct(candidate, total_amount)) %>% 
   arrange(desc(total_amount)) %>% select(-total_amount) %>% 
@@ -196,16 +206,16 @@ donor_stats <- receipts_raw %>%
   group_by(candidate, donor_type) %>% 
   summarise(
     count = n(),
-    total_amt = sum(amount),
-    min = min(amount),
-    max = max(amount),
     median = median(amount),
-    mean = mean(amount)) 
+    total_amt = sum(amount))
+    # min = min(amount),
+    # max = max(amount),
+    # mean = mean(amount))
 
 donor_stats %>% 
   ## arrange in descending order of total receipts
   left_join(total_donations %>% distinct(candidate, total_amount)) %>% 
-  arrange(desc(total_amount)) %>% select(-total_amount) %>% 
+  arrange(desc(total_amount)) %>% select(-total_amount) %>%
   ## create table
   gt() %>% 
   tab_header(
@@ -213,18 +223,15 @@ donor_stats %>%
     subtitle = md("*25th Ward*")
   ) %>% 
   fmt_currency(
-    columns = vars(total_amt, min, max, median, mean), 
+    columns = vars(total_amt, median), 
     currency = "USD",
     decimals = 0
   ) %>% 
   cols_label(
     donor_type = "",
-    count = "Number of Donors",
-    total_amt = "Total Receipts",
-    min = "Min", 
-    max = "Max", 
-    median = "Median", 
-    mean = "Average"
+    count = html("Number of<br>Donors"),
+    median = html("Median<br>Donation"),
+    total_amt = "Total Amount"
   ) %>% 
   tab_source_note(
     source_note = "Source: Illinois Sunshine"
@@ -232,3 +239,4 @@ donor_stats %>%
   tab_options(
     stub_group.font.weight = "bold"
   )
+
