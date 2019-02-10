@@ -1,10 +1,13 @@
 rm(list = ls())
 
 ## Load libraries ----
+library(ggplot2)
+library(scales)
+library(gt)
 library(googlesheets)
 library(tidyr)
 library(purrr)
 library(readr)
 library(stringr)
 library(dplyr)
-
+library(glue)
