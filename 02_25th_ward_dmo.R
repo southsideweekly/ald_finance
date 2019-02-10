@@ -88,13 +88,15 @@ receipts_raw <- receipts_raw %>%
 
 ## 03. Summary Stats ----
 
-### i. total donations by donor type
+### 3ia. total donations by donor type ----
 total_donations <- receipts_raw %>% 
   filter(remove_other == FALSE) %>% 
   group_by(candidate, donor_type) %>% 
   summarise(type_amount = sum(amount)) %>% 
   ungroup %>% group_by(candidate) %>% 
-  mutate(total_amount = sum(type_amount)) %>% 
+  mutate(total_amount = sum(type_amount),
+         type_share = type_amount/total_amount*100,
+         label_share = paste0(sprintf("%.0f", type_share), "%")) %>% 
   arrange(desc(total_amount))
 
 total_donations_plot <- total_donations %>% 
@@ -103,17 +105,38 @@ total_donations_plot <- total_donations %>%
              fill = donor_type)) + 
   geom_bar(stat = "identity") + 
   labs(
-    title = "Figure 1: Total Receipts by Donor Type",
+    title = "Figure 1a: Total Receipts by Donor Type",
     y = "Receipts",
     x = "Candidate",
     fill = "Donor Type") +
   theme_classic() +
   scale_y_continuous(labels = dollar) +
-  theme(plot.title = element_text(size = 18, face = "bold"))
+  theme(plot.title = element_text(size = 18, face = "bold")) +
+  geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4)
 
 plot(total_donations_plot)
 
-### ii. larges donors
+### 3ib. total donations by donor type ----
+
+pct_donations_plot <- total_donations %>% 
+  ggplot(aes(x = reorder(candidate, -total_amount),
+             y = type_share,
+             fill = donor_type)) + 
+  geom_bar(stat = "identity") + 
+  labs(
+    title = "Figure 1b: Share of Receipts by Donor Type",
+    y = "Receipts",
+    x = "Candidate",
+    fill = "Donor Type") +
+  theme_classic() +
+  scale_y_continuous(labels = percent) +
+  theme(plot.title = element_text(size = 18, face = "bold")) +
+  geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4)
+
+
+plot(pct_donations_plot)
+
+### 3ii. larges donors ----
 notable_donors <- receipts_raw %>% 
   filter(remove_other == F) %>% 
   ungroup %>% 
@@ -133,6 +156,10 @@ notable_donors <- receipts_raw %>%
   select(candidate, name, amount, share)
 
 notable_donors %>% 
+  ## arrange in descending order of total receipts
+  left_join(total_donations %>% distinct(candidate, total_amount)) %>% 
+  arrange(desc(total_amount)) %>% select(-total_amount) %>% 
+  ## create table
   gt() %>% 
   tab_header(
     title = md("**Figure 3: Top Donors**"),
@@ -150,7 +177,7 @@ notable_donors %>%
   cols_label(
     name = "",
     amount = "Amount",
-    share = "Share of Total Receipts",
+    share = "Share of Total Receipts"
   ) %>% 
   tab_source_note(
     source_note = "Source: Illinois Sunshine"
@@ -159,7 +186,7 @@ notable_donors %>%
     stub_group.font.weight = "bold"
   )
 
-### iii. donor stats, by type
+### 3iii. donor stats, by type ----
 donor_stats <- receipts_raw %>% 
   filter(remove_other == F) %>% 
   ungroup %>%
@@ -176,6 +203,10 @@ donor_stats <- receipts_raw %>%
     mean = mean(amount)) 
 
 donor_stats %>% 
+  ## arrange in descending order of total receipts
+  left_join(total_donations %>% distinct(candidate, total_amount)) %>% 
+  arrange(desc(total_amount)) %>% select(-total_amount) %>% 
+  ## create table
   gt() %>% 
   tab_header(
     title = md("**Figure 2: Summary of Receipts**"),
