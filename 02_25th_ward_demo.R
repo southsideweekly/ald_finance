@@ -87,36 +87,64 @@ receipts_raw <- receipts_raw %>%
                               str_trim() %>% str_squish()))
 
 ## 03. Summary Stats ----
-
 ### 3ia. total donations by donor type ----
 total_donations <- receipts_raw %>% 
   filter(remove_other == FALSE) %>% 
   group_by(candidate, donor_type) %>% 
   summarise(type_amount = sum(amount)) %>% 
   ungroup %>% group_by(candidate) %>% 
+  mutate(candidate_clean = candidate %>% 
+           str_replace_all(" ", "\n") %>% 
+           str_replace("\nJ\\.", " J\\.")) %>% 
   mutate(total_amount = sum(type_amount, na.rm = T),
          total_amount = ifelse(is.na(total_amount), 0, total_amount),
          type_share = type_amount/total_amount*100,
-         label_share = paste0(sprintf("%.0f", type_share), "%")) %>% 
+         label_share = paste0(sprintf("%.0f", type_share), "%"),
+         label_total = ifelse(donor_type == "Organization" & total_amount > 0, "", dollar(round(total_amount)))) %>% 
   arrange(desc(total_amount))
 
 total_donations_plot <- total_donations %>% 
-  ggplot(aes(x = reorder(candidate, total_amount),
+  ggplot(aes(x = reorder(candidate_clean, total_amount),
              y = type_amount,
              fill = factor(donor_type,
                            levels = c("Organization", "Individual")))) + 
   geom_bar(stat = "identity") + 
   labs(
-    title = "Figure 1a: Total Receipts by Donor Type",
-    y = "Receipts",
-    x = "Candidate",
-    fill = "Donor Type") +
+    title = "Figure 1: Total Receipts by Donor Type",
+    subtitle = "25th Ward",
+    y = "",
+    x = "",
+    fill = "",
+    caption = "Source: illinoissunshine.org") +
   theme_classic() +
-  scale_y_continuous(labels = dollar) +
-  theme(plot.title = element_text(size = 18, face = "bold")) +
-  geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4) +
-  # geom_text(aes(label = total_amount), size = 4) +
-  coord_flip()
+  scale_y_continuous(labels = dollar, expand = c(0,10),
+                     limit = c(0, 250000), 
+                     breaks = NULL) +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        legend.position = "bottom",
+        plot.caption = element_text(hjust = 0),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(4),
+        axis.text = element_text(color = "black", face = "bold")) +
+  geom_text(aes(label = label_share),
+            color = "black",
+            position = position_stack(vjust = 0.5), size = 3) +
+  geom_label(aes(label = label_share),
+             color = "black",
+             fill = "white",
+             position = position_stack(vjust = 0.5), size = 3) +
+  coord_flip() + 
+  scale_fill_grey() + 
+  geom_text(aes(x = reorder(candidate_clean, total_amount),
+                y = total_amount,
+                label = label_total,
+                fill = NULL),
+            data = total_donations,
+            hjust = -0.25,
+            size = 3, 
+            fontface = "bold")
 
 plot(total_donations_plot)
 
@@ -169,7 +197,7 @@ notable_donors %>%
   gt() %>% 
   tab_header(
     title = md("**Figure 3: Top Donors**"),
-    subtitle = md("*25th Ward*")
+    subtitle = md("25th Ward")
   ) %>% 
   fmt_currency(
     columns = vars(amount), 
@@ -186,7 +214,7 @@ notable_donors %>%
     share = "Share of Total Receipts"
   ) %>% 
   tab_source_note(
-    source_note = "Source: Illinois Sunshine"
+    source_note = "Source: illinoissunshine.org"
   ) %>% 
   tab_options(
     stub_group.font.weight = "bold"
@@ -205,9 +233,9 @@ donor_stats <- receipts_raw %>%
     count = n(),
     median = median(amount),
     total_amt = sum(amount))
-    # min = min(amount),
-    # max = max(amount),
-    # mean = mean(amount))
+# min = min(amount),
+# max = max(amount),
+# mean = mean(amount))
 
 donor_stats %>% 
   ## arrange in descending order of total receipts
@@ -217,7 +245,7 @@ donor_stats %>%
   gt() %>% 
   tab_header(
     title = md("**Figure 2: Summary of Receipts**"),
-    subtitle = md("*25th Ward*")
+    subtitle = md("25th Ward")
   ) %>% 
   fmt_currency(
     columns = vars(total_amt, median), 
@@ -231,7 +259,7 @@ donor_stats %>%
     total_amt = "Total Amount"
   ) %>% 
   tab_source_note(
-    source_note = "Source: Illinois Sunshine"
+    source_note = "Source: illinoissunshine.org"
   ) %>% 
   tab_options(
     stub_group.font.weight = "bold"
@@ -239,11 +267,12 @@ donor_stats %>%
 
 ## 4. Interactive polygon chart ----
 
-candidates <- unique(receipts_raw$candidate)
+candidates <- unique(receipts_raw$candidate[which(receipts_raw$amount > 0)])
 
 walk(candidates, function(c){
-
+  
   ### 4i. generate cirle coordinates ----
+  # curr_candidate <- candidates[1]
   curr_candidate <- c
   curr_donors <- notable_donors %>% filter(candidate == curr_candidate)
   packing <- circleProgressiveLayout(curr_donors$amount, sizetype = "area")
@@ -268,12 +297,41 @@ walk(candidates, function(c){
     coord_equal() +
     labs(
       title = "Figure 4: Receipts by Donor",
-      subtitle = glue("Ward 25 - {curr_candidate}"),
+      subtitle = glue("25th Ward - {curr_candidate}"),
       fill = "Donor Type")
   
   # plot(circle_plot)
   circle_widget <- ggiraph(ggobj = circle_plot, width_svg = 10, height_svg = 10)
   htmlwidgets::saveWidget(widget = circle_widget, 
-                          file = glue("~/data/ald_finance/02_ward_demo/Figure 4 Circle Widget - {curr_candidate}.html"))
+                          file = glue("~/data/ald_finance/02_ward_demo/25th Ward/Figure 4 Circle Widget - {curr_candidate}.html"))
 })
-  
+
+## 4iii. one big circle plot!
+packing <- circleProgressiveLayout(notable_donors$amount, sizetype = "area")
+df_circle <- bind_cols(notable_donors, packing) %>% 
+  mutate(text = glue("Candidate: {candidate}\nDonor: {name}\nAmount: {dollar(amount)}") %>% 
+           str_remove_all("'"))
+df_gg <- circleLayoutVertices(packing, npoints = 50)
+circle_plot <- ggplot() +
+  geom_polygon_interactive(
+    data = df_gg, 
+    aes(x, y, group = id, 
+        fill = factor(df_circle$candidate[id],
+                      levels = unique(df_circle$candidate)), 
+        tooltip = df_circle$text[id], 
+        data_id = id),
+    color = "black") +
+  theme_void() +
+  theme(legend.position = "right",
+        plot.title = element_text(size = 18, face = "bold")) + 
+  coord_equal() +
+  labs(
+    title = "Figure 4: Receipts by Donor",
+    subtitle = glue("25th Ward"),
+    fill = "Donor Type",
+    caption = "Source: illinoissunshine.org")
+
+# plot(circle_plot)
+circle_widget <- ggiraph(ggobj = circle_plot, width_svg = 10, height_svg = 10)
+htmlwidgets::saveWidget(widget = circle_widget, 
+                        file = glue("~/data/ald_finance/02_ward_demo/25th Ward/Figure 4 Circle Widget - all candidates.html"))
