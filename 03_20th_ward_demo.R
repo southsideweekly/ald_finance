@@ -110,7 +110,7 @@ total_donations_plot <- total_donations %>%
                            levels = c("Organization", "Individual")))) + 
   geom_bar(stat = "identity") + 
   labs(
-    title = "Figure 1: Total Receipts by Donor Type",
+    title = "Total Receipts by Donor Type",
     subtitle = "20th Ward",
     y = "",
     x = "",
@@ -120,22 +120,20 @@ total_donations_plot <- total_donations %>%
   scale_y_continuous(labels = dollar, expand = c(0,10),
                      limit = c(0, 125000), 
                      breaks = NULL) +
-  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+  theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 22),
         legend.position = "bottom",
-        plot.caption = element_text(hjust = 0),
-        plot.subtitle = element_text(hjust = 0.5),
+        legend.text = element_text(size = 18),
+        plot.caption = element_text(hjust = 0, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 18),
         axis.line = element_blank(),
         axis.ticks = element_blank(),
-        axis.text.x = element_text(4),
-        axis.text = element_text(color = "black", face = "bold")) +
-  geom_text(aes(label = label_share),
-            color = "black",
-            position = position_stack(vjust = 0.5), size = 3) +
-  geom_label(aes(label = label_share),
-             color = "black",
-             fill = "white",
-             position = position_stack(vjust = 0.5), size = 3) +
-  coord_flip() + 
+        axis.text.x = element_text(size = 18),
+        axis.text = element_text(color = "black", face = "bold", size = 18)) +
+  # geom_label(aes(label = label_share),
+  #            color = "black",
+  #            fill = "white",
+  #            position = position_stack(vjust = 0.5), size = 8) +
+  coord_flip() +
   scale_fill_grey() + 
   geom_text(aes(x = reorder(candidate_clean, total_amount),
                 y = total_amount,
@@ -143,30 +141,31 @@ total_donations_plot <- total_donations %>%
                 fill = NULL),
             data = total_donations,
             hjust = -0.25,
-            size = 3, 
-            fontface = "bold")
+            size = 6, 
+            fontface = "bold") + 
+  guides(fill = guide_legend(reverse = TRUE))
 
 plot(total_donations_plot)
 
 ### 3ib. total donations by donor type ----
-
-pct_donations_plot <- total_donations %>% 
-  ggplot(aes(x = reorder(candidate, -total_amount),
-             y = type_share,
-             fill = donor_type)) + 
-  geom_bar(stat = "identity") + 
-  labs(
-    title = "Figure 1b: Share of Receipts by Donor Type",
-    y = "Receipts",
-    x = "Candidate",
-    fill = "Donor Type") +
-  theme_classic() +
-  scale_y_continuous(labels = percent) +
-  theme(plot.title = element_text(size = 18, face = "bold")) +
-  geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4)
-
-
-plot(pct_donations_plot)
+# 
+# pct_donations_plot <- total_donations %>% 
+#   ggplot(aes(x = reorder(candidate, -total_amount),
+#              y = type_share,
+#              fill = donor_type)) + 
+#   geom_bar(stat = "identity") + 
+#   labs(
+#     title = "Figure 1b: Share of Receipts by Donor Type",
+#     y = "Receipts",
+#     x = "Candidate",
+#     fill = "Donor Type") +
+#   theme_classic() +
+#   scale_y_continuous(labels = percent) +
+#   theme(plot.title = element_text(size = 18, face = "bold")) +
+#   geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4)
+# 
+# 
+# plot(pct_donations_plot)
 
 ### 3ii. larges donors ----
 notable_donors <- receipts_raw %>% 
@@ -244,7 +243,7 @@ donor_stats %>%
   ## create table
   gt() %>% 
   tab_header(
-    title = md("**Figure 2: Summary of Receipts**"),
+    title = md("**Summary of Receipts**"),
     subtitle = md("20th Ward")
   ) %>% 
   fmt_currency(
