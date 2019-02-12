@@ -94,7 +94,8 @@ total_donations <- receipts_raw %>%
   group_by(candidate, donor_type) %>% 
   summarise(type_amount = sum(amount)) %>% 
   ungroup %>% group_by(candidate) %>% 
-  mutate(total_amount = sum(type_amount),
+  mutate(total_amount = sum(type_amount, na.rm = T),
+         total_amount = ifelse(is.na(total_amount), 0, total_amount),
          type_share = type_amount/total_amount*100,
          label_share = paste0(sprintf("%.0f", type_share), "%")) %>% 
   arrange(desc(total_amount))
@@ -141,31 +142,26 @@ plot(pct_donations_plot)
 
 ### 3ii. larges donors ----
 notable_donors <- receipts_raw %>% 
-  filter(remove_other == F) %>% 
+  filter(remove_other == F, 
+         !is.na(amount)) %>% 
   ungroup %>% 
   group_by(candidate, first_name, last_name, donor_type) %>% 
   summarise(amount= sum(amount)) %>% 
   ungroup %>% 
   group_by(candidate) %>% 
   arrange(candidate, desc(amount)) %>% 
-  mutate(order = 1:n()) %>% 
-  filter(order <= 10) %>%
+  mutate(order = 1:n()) %>%
   left_join(total_donations %>% distinct(candidate, total_amount)) %>% 
   mutate(share = amount/total_amount,
          name = ifelse(donor_type == "Individual", 
                        paste(first_name, last_name),
                        last_name)) %>% 
   ungroup %>% group_by(candidate) %>% 
-  select(candidate, name, amount, share, order)
-
-## write out names, add in description and load back
-write.csv(notable_donors,
-          "~/data/ald_finance/02_ward_demo/notable_donors.csv",
-          row.names = F, na = "")
+  select(candidate, name, amount, share, order, donor_type)
 
 notable_donors %>% 
   filter(order <= 3) %>% 
-  select(-order) %>% 
+  select(-order, -donor_type) %>% 
   ## arrange in descending order of total receipts
   left_join(total_donations %>% distinct(candidate, total_amount)) %>% 
   arrange(desc(total_amount)) %>% select(-total_amount) %>% 
@@ -198,7 +194,8 @@ notable_donors %>%
 
 ### 3iii. donor stats, by type ----
 donor_stats <- receipts_raw %>% 
-  filter(remove_other == F) %>% 
+  filter(remove_other == F, 
+         !is.na(amount)) %>% 
   ungroup %>%
   group_by(candidate, donor_type, first_name, last_name) %>%
   summarise(amount = sum(amount)) %>%
@@ -240,3 +237,43 @@ donor_stats %>%
     stub_group.font.weight = "bold"
   )
 
+## 4. Interactive polygon chart ----
+
+candidates <- unique(receipts_raw$candidate)
+
+walk(candidates, function(c){
+
+  ### 4i. generate cirle coordinates ----
+  curr_candidate <- c
+  curr_donors <- notable_donors %>% filter(candidate == curr_candidate)
+  packing <- circleProgressiveLayout(curr_donors$amount, sizetype = "area")
+  df_circle <- bind_cols(curr_donors, packing) %>% 
+    mutate(text = glue("Donor: {name}\nAmount: {dollar(amount)}") %>% 
+             str_remove_all("'"))
+  df_gg <- circleLayoutVertices(packing, npoints = 50)
+  
+  ### 4ii. ---- 
+  circle_plot <- ggplot() +
+    geom_polygon_interactive(
+      data = df_gg, 
+      aes(x, y, group = id, 
+          fill = factor(df_circle$donor_type[id],
+                        levels = c("Organization", "Individual")), 
+          tooltip = df_circle$text[id], 
+          data_id = id),
+      color = "black") +
+    theme_void() +
+    theme(legend.position = "right",
+          plot.title = element_text(size = 18, face = "bold")) + 
+    coord_equal() +
+    labs(
+      title = "Figure 4: Receipts by Donor",
+      subtitle = glue("Ward 25 - {curr_candidate}"),
+      fill = "Donor Type")
+  
+  # plot(circle_plot)
+  circle_widget <- ggiraph(ggobj = circle_plot, width_svg = 10, height_svg = 10)
+  htmlwidgets::saveWidget(widget = circle_widget, 
+                          file = glue("~/data/ald_finance/02_ward_demo/Figure 4 Circle Widget - {curr_candidate}.html"))
+})
+  
