@@ -148,22 +148,22 @@ total_donations_plot <- total_donations %>%
 plot(total_donations_plot)
 
 ### 3ib. total donations by donor type ----
-
-pct_donations_plot <- total_donations %>% 
-  ggplot(aes(x = reorder(candidate, -total_amount),
-             y = type_share,
-             fill = donor_type)) + 
-  geom_bar(stat = "identity") + 
-  labs(
-    title = "Figure 1b: Share of Receipts by Donor Type",
-    y = "Receipts",
-    x = "Candidate",
-    fill = "Donor Type") +
-  theme_classic() +
-  scale_y_continuous(labels = percent) +
-  theme(plot.title = element_text(size = 18, face = "bold")) +
-  geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4)
-
+# 
+# pct_donations_plot <- total_donations %>% 
+#   ggplot(aes(x = reorder(candidate, -total_amount),
+#              y = type_share,
+#              fill = donor_type)) + 
+#   geom_bar(stat = "identity") + 
+#   labs(
+#     title = "Figure 1b: Share of Receipts by Donor Type",
+#     y = "Receipts",
+#     x = "Candidate",
+#     fill = "Donor Type") +
+#   theme_classic() +
+#   scale_y_continuous(labels = percent) +
+#   theme(plot.title = element_text(size = 18, face = "bold")) +
+#   geom_text(aes(label = label_share), position = position_stack(vjust = 0.5), size = 4)
+# 
 
 plot(pct_donations_plot)
 
@@ -291,13 +291,17 @@ walk(candidates, function(c){
           data_id = id),
       color = "black") +
     theme_void() +
-    theme(legend.position = "right",
-          plot.title = element_text(size = 18, face = "bold")) + 
+    theme(plot.title = element_text(size = 22, face = "bold", hjust = 0.5),
+          legend.position = "bottom",
+          legend.text = element_text(size = 18),
+          plot.caption = element_text(hjust = 0, size = 12),
+          plot.subtitle = element_text(size = 18, hjust = 0.5)) + 
     coord_equal() +
     labs(
-      title = "Figure 4: Receipts by Donor",
+      title = "Receipts by Donor",
       subtitle = glue("25th Ward - {curr_candidate}"),
-      fill = "Donor Type")
+      fill = "",
+      caption = "Source: illinoissunshine.org")
   
   # plot(circle_plot)
   circle_widget <- ggiraph(ggobj = circle_plot, width_svg = 10, height_svg = 10)
@@ -325,9 +329,9 @@ circle_plot <- ggplot() +
         plot.title = element_text(size = 18, face = "bold")) + 
   coord_equal() +
   labs(
-    title = "Figure 4: Receipts by Donor",
+    title = "Receipts by Donor",
     subtitle = glue("25th Ward"),
-    fill = "Donor Type",
+    fill = "Candidate",
     caption = "Source: illinoissunshine.org")
 
 # plot(circle_plot)

@@ -40,7 +40,7 @@ ward_20_ids <- ward_20_candidates %>%
 ## 02. Pull in donation data from Illinois Sunshine API ----
 receipts_raw <- lapply(ward_20_ids, 
                        function(curr_id){
-                         # curr_id = sw_ids[10]
+                         # curr_id = ward_20_ids[10]
                          phrase <- paste0(api_link, 
                                           "?committee_id=", curr_id, 
                                           "&received_date__ge=", start_date,
@@ -291,13 +291,16 @@ walk(candidates, function(c){
           data_id = id),
       color = "black") +
     theme_void() +
-    theme(legend.position = "right",
-          plot.title = element_text(size = 18, face = "bold")) + 
+    theme(plot.title = element_text(size = 22, face = "bold", hjust = 0.5),
+          legend.position = "bottom",
+          legend.text = element_text(size = 18),
+          plot.caption = element_text(hjust = 0, size = 12),
+          plot.subtitle = element_text(size = 18, hjust = 0.5)) + 
     coord_equal() +
     labs(
-      title = "Figure 4: Receipts by Donor",
+      title = "Receipts by Donor",
       subtitle = glue("20th Ward - {curr_candidate}"),
-      fill = "Donor Type")
+      fill = "")
   
   # plot(circle_plot)
   circle_widget <- ggiraph(ggobj = circle_plot, width_svg = 10, height_svg = 10)
